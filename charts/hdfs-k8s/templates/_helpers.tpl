@@ -163,7 +163,7 @@ The HDFS config file should specify FQDN of services. Otherwise, Kerberos
 login may fail.
 */}}
 {{- define "svc-domain" -}}
-{{- printf "%s.svc.cluster.local" .Release.Namespace -}}
+{{- printf "%s.svc.%s" .Release.Namespace .Values.global.fqdn -}}
 {{- end -}}
 
 {{/*

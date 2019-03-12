@@ -87,6 +87,7 @@ hdfs-namenode-k8s:
     #     volume-type: hdfs-ssd
 
     accessMode: ReadWriteOnce
+    storageClass: "high"
 
     size: 100Gi
 
@@ -119,6 +120,25 @@ hdfs-simple-namenode-k8s:
 ## hdfs-datanode-k8s:
 ## ------------------------------------------------------------------------------
 hdfs-datanode-k8s:
+  persistence:
+    ## Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    # storageClass: "-"
+    ## To choose a suitable persistent volume from available static volumes, selectors
+    ## are used.
+    # selector:
+    #   matchLabels:
+    #     volume-type: hdfs-ssd
+    accessMode: ReadWriteOnce
+    storageClass: "high"
+    size: 300Gi
+
+
   ## Node labels and tolerations for pod assignment
   nodeSelector: {}
   tolerations: []
@@ -186,6 +206,9 @@ global:
 
   ## Whether or not to expect namenodes in the HA setup.
   namenodeHAEnabled: true
+
+  ## FQDN
+  fqdn: cluster.local
 
   ## The number of zookeeper server to have in the quorum.
   ## This should match zookeeper.replicaCount above. Used only when

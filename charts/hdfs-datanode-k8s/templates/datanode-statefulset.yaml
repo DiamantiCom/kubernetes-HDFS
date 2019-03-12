@@ -1,3 +1,28 @@
+# A headless service to create DNS records.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "hdfs-k8s.datanode.fullname" . }}
+  labels:
+    app: {{ template "hdfs-k8s.datanode.name" . }}
+    chart: {{ template "hdfs-k8s.subchart" . }}
+  annotations:
+    # TODO: Deprecated. Replace tolerate-unready-endpoints with
+    # v1.Service.PublishNotReadyAddresses.
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  ports:
+  - port: 50010
+    name: fs
+  - port: 50075
+    name: http
+  - port: 50020
+    name: ipc
+  clusterIP: None
+  selector:
+    app: {{ template "hdfs-k8s.datanode.name" . }}
+    release: {{ .Release.Name }}
+---
 # Provides datanode helper scripts.
 apiVersion: v1
 kind: ConfigMap
@@ -34,15 +59,23 @@ data:
 ---
 # Deleting a daemonset may need some trick. See
 # https://github.com/kubernetes/kubernetes/issues/33245#issuecomment-261250489
-apiVersion: extensions/v1beta1
-kind: DaemonSet
+apiVersion: apps/v1beta2
+kind: StatefulSet
 metadata:
   name: {{ template "hdfs-k8s.datanode.fullname" . }}
+  annotations:
+    diamanti.com/endpoint0: "{\"network\":\"default\",\"perfTier\":\"high\"}"
   labels:
     app: {{ template "hdfs-k8s.datanode.name" . }}
     chart: {{ template "hdfs-k8s.subchart" . }}
     release: {{ .Release.Name }}
 spec:
+  serviceName: {{ template "hdfs-k8s.datanode.fullname" . }}
+  replicas: 3
+  selector:
+    matchLabels:
+      app: {{ template "hdfs-k8s.datanode.name" . }}
+      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
@@ -73,9 +106,7 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
       {{- end }}
-      hostNetwork: true
-      hostPID: true
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: ClusterFirst
       containers:
         - name: datanode
           image: uhopper/hadoop-datanode:2.7.2
@@ -94,6 +125,13 @@ spec:
             - name: JSVC_HOME
               value: /jsvc-home
             {{- end }}
+          ports:
+          - containerPort: 50010
+            name: fs
+          - containerPort: 50075
+            name: http
+          - containerPort: 50020
+            name: ipc
           livenessProbe:
             exec:
               command:
@@ -132,6 +170,11 @@ spec:
               mountPath: /jsvc-home
             {{- end }}
             {{- end }}
+          resources:
+            requests:
+              memory: "512Mi"
+            limits:
+              memory: "4Gi"
       {{- if .Values.global.kerberosEnabled }}
       initContainers:
         - name: copy-kerberos-keytab
@@ -167,11 +210,6 @@ spec:
           configMap:
             name: {{ template "hdfs-k8s.datanode.fullname" . }}-scripts
             defaultMode: 0744
-        {{- range $index, $path := .Values.global.dataNodeHostPath }}
-        - name: hdfs-data-{{ $index }}
-          hostPath:
-            path: {{ $path }}
-        {{- end }}
         - name: hdfs-config
           configMap:
             name: {{ template "hdfs-k8s.config.fullname" . }}
@@ -189,3 +227,25 @@ spec:
           emptyDir: {}
         {{- end }}
         {{- end }}
+  volumeClaimTemplates:
+    {{- range $index, $path := .Values.global.dataNodeHostPath }}
+    - metadata:
+        name: hdfs-data-{{ $index }}
+      spec:
+        accessModes:
+          - {{ $.Values.persistence.accessMode | quote }}
+        resources:
+          requests:
+            storage: {{ $.Values.persistence.size | quote }}
+      {{- if $.Values.persistence.storageClass }}
+        {{- if (eq "-" $.Values.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: "{{ $.Values.persistence.storageClass }}"
+        {{- end }}
+      {{- end }}
+      {{- if $.Values.persistence.selector }}
+        selector:
+{{ toYaml $.Values.persistence.selector | indent 10 }}
+      {{- end }}
+    {{- end }}
