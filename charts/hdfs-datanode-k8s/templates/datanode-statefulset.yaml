@@ -63,8 +63,6 @@ apiVersion: apps/v1beta2
 kind: StatefulSet
 metadata:
   name: {{ template "hdfs-k8s.datanode.fullname" . }}
-  annotations:
-    diamanti.com/endpoint0: "{\"network\":\"default\",\"perfTier\":\"high\"}"
   labels:
     app: {{ template "hdfs-k8s.datanode.name" . }}
     chart: {{ template "hdfs-k8s.subchart" . }}

@@ -144,6 +144,11 @@ hdfs-datanode-k8s:
   tolerations: []
   affinity: {}
 
+# podAnnotations example:
+
+#  podAnnotations:
+#    "diamanti.com/endpoint0": "{\"network\":\"default\",\"perfTier\":\"high\"}"
+
 ## ------------------------------------------------------------------------------
 ## hdfs-krb5-k8s:
 ## ------------------------------------------------------------------------------
